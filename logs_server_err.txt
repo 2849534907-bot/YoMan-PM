@@ -1,0 +1,44 @@
+INFO:     Started server process [111884]
+INFO:     Waiting for application startup.
+2026-08-29 11:26:10,204 [INFO] api.main: 模型: gpt-4o-mini  base_url: (官方)
+2026-08-29 11:26:10,344 [INFO] core.skill_loader: 
+================ EchoMind Skills Loaded ================
+目录: C:\Users\Administrator\Desktop\Agent开发\EchoMind-PM\skills
+数量: 4
+1. 通用项目管理助手规范
+   agents: general
+   keywords: 你好, 您好, 咨询, 帮助, 项目管理, 任务, 项目, 请问, ...
+   path: C:\Users\Administrator\Desktop\Agent开发\EchoMind-PM\skills\general\SKILL.md
+2. 项目规划规范
+   agents: planner
+   keywords: 规划, 拆解, 分解, 计划, 里程碑, wbs, 目标, 范围, ...
+   path: C:\Users\Administrator\Desktop\Agent开发\EchoMind-PM\skills\planning\SKILL.md
+3. 项目汇报规范
+   agents: reporter
+   keywords: 周报, 月报, 汇报, 总结, 摘要, 复盘, 站会, 同步, ...
+   path: C:\Users\Administrator\Desktop\Agent开发\EchoMind-PM\skills\reporting\SKILL.md
+4. 进度跟踪规范
+   agents: tracker
+   keywords: 进度, 状态, 完成, 逾期, 延迟, 滞后, 跟踪, 进展, ...
+   path: C:\Users\Administrator\Desktop\Agent开发\EchoMind-PM\skills\tracking\SKILL.md
+========================================================
+2026-08-29 11:26:10,392 [INFO] memory.conversation_memory: 使用进程内存作为工作记忆（重启后丢失）
+2026-08-29 11:26:10,392 [WARNING] memory.conversation_memory: 未安装 chromadb，情景记忆/用户画像降级为不可用（仅保留工作记忆）
+2026-08-29 11:26:10,408 [WARNING] mcp.knowledge_base: 未安装 chromadb，知识库使用关键词检索降级模式
+2026-08-29 11:26:10,408 [INFO] mcp.knowledge_base: 知识库导入 6 个文档片段
+2026-08-29 11:26:10,408 [INFO] mcp.knowledge_base: 已导入默认知识库: 6 篇文档
+2026-08-29 11:26:10,409 [INFO] api.main: 知识库已加载: 6 个文档片段
+2026-08-29 11:26:10,409 [INFO] mcp.tool_manager: 注册工具: knowledge_search
+2026-08-29 11:26:10,412 [INFO] api.main: 未配置飞书多维表格（LARK_APP_ID/LARK_APP_SECRET/LARK_BASE_TOKEN/LARK_TABLE_ID），使用本地存储
+2026-08-29 11:26:10,414 [INFO] mcp.tool_manager: 注册工具: project_create
+2026-08-29 11:26:10,414 [INFO] mcp.tool_manager: 注册工具: project_list
+2026-08-29 11:26:10,415 [INFO] mcp.tool_manager: 注册工具: task_add
+2026-08-29 11:26:10,415 [INFO] mcp.tool_manager: 注册工具: task_update
+2026-08-29 11:26:10,415 [INFO] mcp.tool_manager: 注册工具: task_list
+2026-08-29 11:26:10,415 [INFO] mcp.tool_manager: 注册工具: feishu_sync
+2026-08-29 11:26:10,415 [INFO] mcp.tool_manager: 注册工具: feishu_pull
+2026-08-29 11:26:11,281 [INFO] monitor.performance_monitor: Prometheus 已启动: :9091
+2026-08-29 11:26:11,282 [INFO] monitor.performance_monitor: Monitor 已启动，采集间隔 10.0s
+2026-08-29 11:26:11,311 [INFO] api.main: EchoMind-PM 已就绪
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8123 (Press CTRL+C to quit)

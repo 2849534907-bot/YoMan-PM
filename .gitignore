@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# 虚拟环境
+.venv/
+.venv-pm/
+venv/
+env/
+
+# 环境变量与密钥（严禁提交）
+.env
+.env.backup
+.env.example.env
+
+# 数据文件
+data/projects.json
+data/projects/
+data/chroma/
+data/*.png
+data/*.jpg
+data/*.jpeg
+
+# 日志
+logs_*/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 测试临时文件
+test_*.py
+!test_doubao_modes.py

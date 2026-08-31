@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EchoMind-PM 项目管理助手</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --primary: #2563eb;
+    --primary-light: #dbeafe;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --user-bubble: #2563eb;
+    --user-text: #ffffff;
+    --agent-bubble: #f1f5f9;
+    --agent-text: #1e293b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── 顶部栏 ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow);
+    z-index: 10;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--primary), #7c3aed);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 16px;
+  }
+  .header h1 { font-size: 17px; font-weight: 600; }
+  .header .subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .status-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-secondary);
+    background: var(--bg); padding: 6px 12px; border-radius: 20px;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+  }
+  .model-btn {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500;
+    padding: 7px 14px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: 8px;
+  }
+  .model-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .model-btn .model-icon { font-size: 14px; }
+  .model-btn.mode-auto { border-color: #94a3b8; }
+  .model-btn.mode-mini { border-color: var(--success); color: var(--success); }
+  .model-btn.mode-deep { border-color: #7c3aed; color: #7c3aed; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── 主聊天区 ── */
+  .chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .message {
+    display: flex;
+    margin-bottom: 20px;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message.user { justify-content: flex-end; }
+  .message.agent { justify-content: flex-start; }
+
+  .bubble {
+    max-width: 75%;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    line-height: 1.6;
+    font-size: 14px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+  .message.user .bubble {
+    background: var(--user-bubble);
+    color: var(--user-text);
+    border-bottom-right-radius: 4px;
+  }
+  .message.agent .bubble {
+    background: var(--agent-bubble);
+    color: var(--agent-text);
+    border-bottom-left-radius: 4px;
+  }
+
+  .meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .meta .tag {
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
+  /* ── 加载动画 ── */
+  .typing {
+    display: flex; gap: 5px; padding: 14px 18px;
+    background: var(--agent-bubble); border-radius: var(--radius);
+    border-bottom-left-radius: 4px; width: fit-content;
+  }
+  .typing span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-secondary);
+    animation: typing 1.4s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* ── 快捷指令 ── */
+  .quick-actions {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 0 24px 12px; max-width: 860px; width: 100%; margin: 0 auto;
+  }
+  .quick-btn {
+    padding: 7px 14px; border: 1px solid var(--border);
+    background: var(--surface); border-radius: 20px;
+    font-size: 12px; color: var(--text-secondary);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .quick-btn:hover {
+    border-color: var(--primary); color: var(--primary);
+    background: var(--primary-light);
+  }
+
+  /* ── 输入区 ── */
+  .input-area {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 16px 24px 20px;
+  }
+  .input-wrapper {
+    max-width: 860px; margin: 0 auto;
+    display: flex; gap: 10px; align-items: flex-end;
+  }
+  .input-box {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    max-height: 120px;
+    line-height: 1.5;
+  }
+  .input-box:focus { border-color: var(--primary); }
+  .input-box::placeholder { color: var(--text-secondary); }
+
+  .send-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    height: 44px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .send-btn:hover { background: #1d4ed8; }
+  .send-btn:disabled { background: var(--text-secondary); cursor: not-allowed; }
+
+  .footer-hint {
+    text-align: center; font-size: 11px; color: var(--text-secondary);
+    margin-top: 8px; max-width: 860px; margin-left: auto; margin-right: auto;
+  }
+
+  /* ── 错误提示 ── */
+  .error-bubble {
+    background: #fef2f2; color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+
+  .stream-cursor {
+    display: inline-block;
+    width: 8px; height: 16px;
+    background: var(--text-secondary);
+    animation: blink 1s infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+  .thinking-text {
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 13px;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* ── 滚动条 ── */
+  .chat-container::-webkit-scrollbar { width: 6px; }
+  .chat-container::-webkit-scrollbar-track { background: transparent; }
+  .chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">PM</div>
+    <div>
+      <h1>EchoMind-PM 项目管理助手</h1>
+      <div class="subtitle">规划 · 跟踪 · 汇报 · 风险预警</div>
+    </div>
+  </div>
+  <div class="status-badge">
+    <button class="model-btn mode-auto" id="modelBtn" onclick="toggleModel()">
+      <span class="model-icon">🤖</span>
+      <span id="modelBtnText">自动</span>
+    </button>
+    <div class="status-dot"></div>
+    <span id="status-text">已连接</span>
+  </div>
+</div>
+
+<div class="chat-container" id="chatContainer">
+  <div class="message agent">
+    <div class="bubble">你好！我是 EchoMind-PM 项目管理助手。我可以帮你：
+
+• <b>项目规划</b>：拆解任务、设定里程碑、排期
+• <b>进度跟踪</b>：查询任务状态、识别逾期和风险
+• <b>汇报总结</b>：生成周报、项目摘要、复盘
+• <b>信息查询</b>：解答项目管理相关问题
+
+有什么项目需要我帮忙？</div>
+  </div>
+</div>
+
+<div class="quick-actions" id="quickActions">
+  <button class="quick-btn" onclick="sendQuick('帮我规划一个新项目，给出WBS拆解和里程碑')">📋 新项目规划</button>
+  <button class="quick-btn" onclick="sendQuick('帮我看看当前项目进度，有哪些风险')">📊 进度查询</button>
+  <button class="quick-btn" onclick="sendQuick('帮我生成一份项目周报')">📝 生成周报</button>
+  <button class="quick-btn" onclick="sendQuick('项目延期了怎么办，给我一个应对方案')">⚠️ 风险应对</button>
+</div>
+
+<div class="input-area">
+  <div class="input-wrapper">
+    <textarea class="input-box" id="messageInput" placeholder="输入你的问题，按 Enter 发送，Shift+Enter 换行..." rows="1"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+      <span>发送</span>
+    </button>
+  </div>
+  <div class="footer-hint">API: <span id="apiUrl">http://127.0.0.1:8123</span> · 豆包 doubao-seed-evolving 驱动</div>
+</div>
+
+<script>
+  const API_BASE = 'http://127.0.0.1:8123';
+  const chatContainer = document.getElementById('chatContainer');
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const statusText = document.getElementById('status-text');
+  const quickActions = document.getElementById('quickActions');
+
+  let sessionId = 'web_' + Date.now();
+  let userId = 'web_user';
+  let isLoading = false;
+
+  // 模型切换：auto（自动判断）/ mini（快速）/ deep（深度思考）
+  const MODEL_MODES = ['auto', 'mini', 'deep'];
+  const MODEL_LABELS = { auto: '自动', mini: 'mini', deep: 'evolving' };
+  const MODEL_ICONS = { auto: '🤖', mini: '⚡', deep: '🧠' };
+  const MODEL_NAMES = {
+    mini: 'doubao-seed-2-0-mini-260428',
+    deep: 'doubao-seed-evolving'
+  };
+  let currentModelMode = 'auto';
+
+  function toggleModel() {
+    const idx = MODEL_MODES.indexOf(currentModelMode);
+    currentModelMode = MODEL_MODES[(idx + 1) % MODEL_MODES.length];
+    updateModelButton();
+  }
+
+  function updateModelButton(usedModel) {
+    const btn = document.getElementById('modelBtn');
+    const text = document.getElementById('modelBtnText');
+    const icon = btn.querySelector('.model-icon');
+    btn.className = 'model-btn mode-' + currentModelMode;
+    icon.textContent = MODEL_ICONS[currentModelMode];
+    if (currentModelMode === 'auto' && usedModel) {
+      // 自动模式下显示实际用了哪个模型
+      const shortName = usedModel.includes('mini') ? 'mini' : 'evolving';
+      text.textContent = '自动·' + shortName;
+    } else {
+      text.textContent = MODEL_LABELS[currentModelMode];
+    }
+  }
+
+  function getModelForRequest() {
+    // auto 模式不传 model（让后端自动判断），手动模式传具体模型名
+    if (currentModelMode === 'auto') return null;
+    return MODEL_NAMES[currentModelMode];
+  }
+
+  // 自适应输入框高度
+  messageInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  });
+
+  // Enter 发送，Shift+Enter 换行
+  messageInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  function sendQuick(text) {
+    messageInput.value = text;
+    sendMessage();
+  }
+
+  function scrollToBottom() {
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  function addMessage(role, content, meta) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message ' + role;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    if (role === 'agent' && content.startsWith('[错误]')) {
+      bubble.classList.add('error-bubble');
+    }
+    bubble.textContent = content;
+    msgDiv.appendChild(bubble);
+
+    if (meta) {
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'meta';
+      if (meta.agent_type) {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        const agentNames = { general: '通用助手', planner: '规划专家', tracker: '跟踪专家', reporter: '汇报专家' };
+        tag.textContent = agentNames[meta.agent_type] || meta.agent_type;
+        metaDiv.appendChild(tag);
+      }
+      if (meta.intent) {
+        const intentSpan = document.createElement('span');
+        const intentNames = { greeting: '问候', plan: '规划', schedule: '排期', track: '跟踪', risk: '风险', report: '汇报', query: '查询', escalation: '升级', other: '其他' };
+        intentSpan.textContent = '意图: ' + (intentNames[meta.intent] || meta.intent);
+        metaDiv.appendChild(intentSpan);
+      }
+      if (meta.latency_ms) {
+        const timeSpan = document.createElement('span');
+        timeSpan.textContent = (meta.latency_ms / 1000).toFixed(1) + 's';
+        metaDiv.appendChild(timeSpan);
+      }
+      msgDiv.appendChild(metaDiv);
+    }
+
+    chatContainer.appendChild(msgDiv);
+    scrollToBottom();
+    return msgDiv;
+  }
+
+  function showTyping() {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message agent';
+    msgDiv.id = 'typing-indicator';
+    msgDiv.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;"><div class="typing"><span></span><span></span><span></span></div><div class="wait-label" style="font-size:11px;color:var(--text-secondary);padding-left:4px;">正在生成回复...</div></div>';
+    chatContainer.appendChild(msgDiv);
+    scrollToBottom();
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+  }
+
+  function setLoading(loading) {
+    isLoading = loading;
+    sendBtn.disabled = loading;
+    sendBtn.querySelector('span').textContent = loading ? '思考中...' : '发送';
+    if (loading) {
+      statusText.textContent = '正在生成回复...';
+    } else {
+      statusText.textContent = '已连接';
+    }
+  }
+
+  function createStreamingMessage() {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message agent';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = '<span class="thinking-text">正在深度思考中...</span><span class="stream-cursor"></span>';
+    msgDiv.appendChild(bubble);
+    chatContainer.appendChild(msgDiv);
+    scrollToBottom();
+    return { msgDiv, bubble };
+  }
+
+  function addMetaToMessage(msgDiv, meta) {
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'meta';
+    if (meta.model) {
+      const modelTag = document.createElement('span');
+      const shortModel = meta.model.includes('mini') ? '⚡ mini' : '🧠 evolving';
+      modelTag.style.cssText = 'background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:10px;font-weight:500;';
+      modelTag.textContent = shortModel;
+      metaDiv.appendChild(modelTag);
+    }
+    if (meta.agent_type) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      const agentNames = { general: '通用助手', planner: '规划专家', tracker: '跟踪专家', reporter: '汇报专家' };
+      tag.textContent = agentNames[meta.agent_type] || meta.agent_type;
+      metaDiv.appendChild(tag);
+    }
+    if (meta.intent) {
+      const intentSpan = document.createElement('span');
+      const intentNames = { greeting: '问候', plan: '规划', schedule: '排期', track: '跟踪', risk: '风险', report: '汇报', query: '查询', escalation: '升级', other: '其他' };
+      intentSpan.textContent = '意图: ' + (intentNames[meta.intent] || meta.intent);
+      metaDiv.appendChild(intentSpan);
+    }
+    if (meta.latency_ms) {
+      const timeSpan = document.createElement('span');
+      timeSpan.textContent = (meta.latency_ms / 1000).toFixed(1) + 's';
+      metaDiv.appendChild(timeSpan);
+    }
+    msgDiv.appendChild(metaDiv);
+  }
+
+  async function sendMessage() {
+    const text = messageInput.value.trim();
+    if (!text || isLoading) return;
+
+    addMessage('user', text);
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    setLoading(true);
+
+    // 创建空的 Agent 消息气泡，后续逐字填充
+    const { msgDiv, bubble } = createStreamingMessage();
+    let fullText = '';
+    let firstToken = false;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000);
+
+      const response = await fetch(API_BASE + '/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          session_id: sessionId,
+          message: text,
+          model: getModelForRequest()
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        bubble.textContent = '[错误] 服务返回错误: ' + response.status + ' ' + errText;
+        bubble.classList.add('error-bubble');
+        setLoading(false);
+        messageInput.focus();
+        return;
+      }
+
+      // 读取流式响应
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const event = JSON.parse(trimmed);
+            if (event.type === 'token') {
+              if (!firstToken) {
+                firstToken = true;
+                bubble.textContent = '';
+              }
+              fullText += event.content;
+              bubble.textContent = fullText;
+              scrollToBottom();
+            } else if (event.type === 'done') {
+              // 自动模式下更新按钮显示实际用的模型
+              if (event.model) {
+                updateModelButton(event.model);
+              }
+              addMetaToMessage(msgDiv, {
+                agent_type: event.agent_type,
+                intent: event.intent,
+                latency_ms: event.latency_ms,
+                model: event.model
+              });
+            } else if (event.type === 'error') {
+              bubble.textContent = '[错误] ' + event.message;
+              bubble.classList.add('error-bubble');
+            }
+          } catch (e) {
+            // 忽略解析失败的行
+          }
+        }
+      }
+
+      // 如果没有收到任何 token，显示提示
+      if (!firstToken && !fullText) {
+        bubble.textContent = '[提示] 未收到回复内容，请稍后重试。';
+      }
+
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        bubble.textContent = '[提示] 等待超过5分钟仍未返回。深度思考模型处理复杂问题较慢，可换个更简单的问题重试。';
+      } else {
+        bubble.textContent = '[错误] 无法连接到服务 (' + err.message + ')。请确认 API 服务已启动: ' + API_BASE + '\n\n建议用 Chrome 或 Edge 打开本页面。';
+      }
+      bubble.classList.add('error-bubble');
+    }
+
+    setLoading(false);
+    messageInput.focus();
+  }
+
+  // 页面加载时检查 API 连通性
+  async function checkHealth() {
+    try {
+      const r = await fetch(API_BASE + '/health', { signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        statusText.textContent = '已连接';
+      } else {
+        statusText.textContent = '服务异常';
+      }
+    } catch {
+      statusText.textContent = '未连接';
+    }
+  }
+  checkHealth();
+</script>
+
+</body>
+</html>

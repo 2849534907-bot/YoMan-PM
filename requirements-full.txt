@@ -1,0 +1,7 @@
+# EchoMind-PM 完整版依赖（含 Redis + ChromaDB 向量记忆/RAG）
+# 先安装基础依赖：pip install -r requirements.txt
+# 再安装本清单：pip install -r requirements-full.txt
+# 注意：chromadb 在 Windows 上可能需要 Microsoft C++ Build Tools（缺少时会构建失败）。
+
+redis==5.2.1
+chromadb==0.5.23
