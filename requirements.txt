@@ -8,8 +8,9 @@ openai>=3.0.0              # OpenAI 兼容接口（豆包 Ark / 官方 / 第三�
 
 # ── Web 框架 ──────────────────────────────────────────────────────────────────
 fastapi==0.115.5
-uvicorn[standard]==0.32.1
-pydantic==2.10.3
+uvicorn==0.32.1              # 核心版（standard extras 在 Python 3.14 上无预编译包）
+pydantic>=2.12,<3            # 需 >=2.12 以支持 Python 3.14（2.10.x 无 cp314 wheel）
+websockets>=12.0             # WebSocket 支持（uvicorn 标准 extras 的替代）
 python-multipart==0.0.12    # FastAPI 文件上传支持
 
 # ── 监控 ──────────────────────────────────────────────────────────────────────

@@ -11,6 +11,8 @@ build/
 # 虚拟环境
 .venv/
 .venv-pm/
+.venv-pm.broken/
+.venv*/
 venv/
 env/
 
