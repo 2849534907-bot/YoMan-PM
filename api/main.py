@@ -28,7 +28,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
@@ -329,6 +329,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── 网页端静态入口（浏览器访问 http://127.0.0.1:8123 直接打开聊天界面）─────────
+_WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
+
+@app.get("/", include_in_schema=False)
+async def index():
+    return FileResponse(str(_WEB_DIR / "index.html"))
 
 
 # ── 请求/响应模型 ─────────────────────────────────────────────────────────────
