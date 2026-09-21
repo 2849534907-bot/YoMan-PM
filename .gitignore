@@ -48,3 +48,6 @@ desktop.ini
 # 测试临时文件
 test_*.py
 !test_doubao_modes.py
+
+# 图标源图片（私人照片，不提交）
+icon_source.jpg
