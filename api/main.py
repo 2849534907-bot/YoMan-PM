@@ -335,7 +335,10 @@ _WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
 
 @app.get("/", include_in_schema=False)
 async def index():
-    return FileResponse(str(_WEB_DIR / "index.html"))
+    resp = FileResponse(str(_WEB_DIR / "index.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 # ── 请求/响应模型 ─────────────────────────────────────────────────────────────
@@ -367,9 +370,14 @@ class ChatResponse(BaseModel):
 
 
 def _apply_files(req: ChatRequest) -> tuple:
-    """把上传文件合并进消息：文本拼入 message，图片收集为多模态 data URL 列表。"""
+    """拆分用户消息与文件内容。
+
+    返回 (用户原话, 图片 data URL 列表, 文件背景文本)：
+    - 文件内容作为"背景信息"交给 LLM 阅读，不混入用户消息，
+      避免污染意图识别与复杂度评估（防止误判、误切深度模型、误触发多 Agent）。
+    """
     if not req.files:
-        return req.message, None
+        return req.message, None, ""
     images: List[str] = []
     file_parts = []
     for f in req.files:
@@ -377,15 +385,11 @@ def _apply_files(req: ChatRequest) -> tuple:
             images.append(f.content)
         elif f.content:
             file_parts.append(f"《{f.filename}》\n{f.content[:50000]}")
-    if not file_parts and not images:
-        return req.message, None
+    background = ""
     if file_parts:
-        final = ("用户上传了以下文件，请结合文件内容回答问题：\n\n"
-                 + "\n\n".join(file_parts)
-                 + f"\n\n用户问题：{req.message}")
-    else:
-        final = req.message
-    return final, images or None
+        background = ("用户上传了以下文件，请结合文件内容回答问题：\n\n"
+                      + "\n\n".join(file_parts))
+    return req.message, (images or None), background
 
 
 # ── 路由 ──────────────────────────────────────────────────────────────────────
@@ -453,15 +457,16 @@ async def chat(req: ChatRequest):
     ] if mem_ctx.recent_messages else None
 
     knowledge_text, knowledge_used = await _build_knowledge_context(req.message)
+    user_message, images, file_background = _apply_files(req)
     context_parts = [mem_ctx.to_prompt_text()]
+    if file_background:
+        context_parts.append(file_background)
     if knowledge_text:
         context_parts.append(knowledge_text)
     full_context = "\n\n".join(part for part in context_parts if part)
 
-    final_message, images = _apply_files(req)
-
     orch_req = OrcReq(
-        message=final_message,
+        message=user_message,
         user_id=req.user_id,
         conv_id=conv_id,
         context=full_context,
@@ -522,15 +527,16 @@ async def chat_stream(req: ChatRequest):
     ] if mem_ctx.recent_messages else None
 
     knowledge_text, knowledge_used = await _build_knowledge_context(req.message)
+    user_message, images, file_background = _apply_files(req)
     context_parts = [mem_ctx.to_prompt_text()]
+    if file_background:
+        context_parts.append(file_background)
     if knowledge_text:
         context_parts.append(knowledge_text)
     full_context = "\n\n".join(part for part in context_parts if part)
 
-    final_message, images = _apply_files(req)
-
     orch_req = OrcReq(
-        message=final_message,
+        message=user_message,
         user_id=req.user_id,
         conv_id=conv_id,
         context=full_context,

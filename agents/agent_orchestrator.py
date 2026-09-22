@@ -332,10 +332,11 @@ class AgentOrchestrator:
             req.intent  = intent_result.intent
             req.urgency = intent_result.urgency
 
-        # 复杂问题自动并行协作，例如同一句同时涉及进度滞后和风险。
-        collaboration = self._collaboration_targets(req)
-        if len(collaboration) > 1:
-            return await self.run_parallel(req, collaboration)
+        # 并行协作已禁用：始终由"意图识别 → 单一最贴切 Agent"作答，
+        # 避免多 Agent 同时回答导致响应慢、答案冗长。
+        # collaboration = self._collaboration_targets(req)
+        # if len(collaboration) > 1:
+        #     return await self.run_parallel(req, collaboration)
 
         # 2. 路由：选择 Agent 类型
         agent_type = self._route(req.intent, req.urgency)
@@ -381,20 +382,20 @@ class AgentOrchestrator:
             req.intent = intent_result.intent
             req.urgency = intent_result.urgency
 
-        # 2. 路由（并行协作场景回退到非流式，避免多流合并复杂度）
-        collaboration = self._collaboration_targets(req)
-        if len(collaboration) > 1:
-            result = await self.run_parallel(req, collaboration)
-            yield {"type": "token", "content": result.response}
-            yield {
-                "type": "done",
-                "intent": result.intent.value if result.intent else "other",
-                "agent_type": result.agent_type.value,
-                "latency_ms": result.latency_ms,
-                "escalated": result.escalated,
-                "full_response": result.response,
-            }
-            return
+        # 2. 路由（并行协作已禁用，始终单一 Agent 作答）
+        # collaboration = self._collaboration_targets(req)
+        # if len(collaboration) > 1:
+        #     result = await self.run_parallel(req, collaboration)
+        #     yield {"type": "token", "content": result.response}
+        #     yield {
+        #         "type": "done",
+        #         "intent": result.intent.value if result.intent else "other",
+        #         "agent_type": result.agent_type.value,
+        #         "latency_ms": result.latency_ms,
+        #         "escalated": result.escalated,
+        #         "full_response": result.response,
+        #     }
+        #     return
 
         agent_type = self._route(req.intent, req.urgency)
 
