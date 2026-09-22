@@ -187,12 +187,28 @@ class LLMClient:
         content 格式为 [{"type": "input_text", "text": "..."}]。
         要求 openai>=3.0（异步客户端需有 responses 属性）。
         """
-        # 将标准 messages 格式转换为 Responses API 的 input 格式
+                # 将标准 messages 格式转换为 Responses API 的 input 格式
+        # 兼容多模态 content（数组）：text → input_text，image_url → input_image
         responses_input = []
         for msg in full:
             content = msg.get("content", "")
             if isinstance(content, str):
                 content = [{"type": "input_text", "text": content}]
+            elif isinstance(content, list):
+                converted = []
+                for item in content:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("type") == "text":
+                        converted.append({"type": "input_text", "text": item.get("text", "")})
+                    elif item.get("type") == "image_url":
+                        url = item.get("image_url")
+                        if isinstance(url, dict):
+                            url = url.get("url", "")
+                        converted.append({"type": "input_image", "image_url": url})
+                    else:
+                        converted.append(item)
+                content = converted or [{"type": "input_text", "text": ""}]
             responses_input.append({"role": msg["role"], "content": content})
 
         try:

@@ -85,6 +85,7 @@ class Request:
     urgency:     Optional[UrgencyLevel]   = None
     request_id:  str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     model_override: Optional[str] = None  # 用户手动指定模型，跳过自动选择
+    images: Optional[List[str]] = None  # 图片 data URL 列表（多模态输入）
 
 
 @dataclass
@@ -147,7 +148,13 @@ class BaseAgent:
         if req.context:
             messages.append({"role": "user", "content": f"[背景信息]\n{_clean(req.context)}"})
             messages.append({"role": "assistant", "content": "好的，我已了解背景信息。"})
-        messages.append({"role": "user", "content": _clean(req.message)})
+        if req.images:
+            content = [{"type": "text", "text": _clean(req.message)}]
+            for _url in req.images:
+                content.append({"type": "image_url", "image_url": {"url": _url}})
+            messages.append({"role": "user", "content": content})
+        else:
+            messages.append({"role": "user", "content": _clean(req.message)})
 
         return await self._client.chat(
             messages,
@@ -172,7 +179,13 @@ class BaseAgent:
             if req.context:
                 messages.append({"role": "user", "content": f"[背景信息]\n{_clean(req.context)}"})
                 messages.append({"role": "assistant", "content": "好的，我已了解背景信息。"})
-            messages.append({"role": "user", "content": _clean(req.message)})
+            if req.images:
+                content = [{"type": "text", "text": _clean(req.message)}]
+                for _url in req.images:
+                    content.append({"type": "image_url", "image_url": {"url": _url}})
+                messages.append({"role": "user", "content": content})
+            else:
+                messages.append({"role": "user", "content": _clean(req.message)})
 
             async for chunk in self._client.chat_stream(
                 messages,
@@ -213,6 +226,8 @@ class GeneralAgent(BaseAgent):
         "你是 EchoMind-PM 项目管理助手。友好、简洁地回答用户关于项目管理的问题。"
         "如果问题超出你的能力范围，明确说明并建议转接专业项目管理功能。"
         "可协助用户了解项目整体情况、解释项目管理概念。"
+        "当用户上传文件或图片时，请先读取其中的内容，并尽量结合项目管理/工作场景给出解读、总结或建议；"
+        "如果内容与工作完全无关，可简短说明后礼貌引导回项目管理话题。"
     )
 
 

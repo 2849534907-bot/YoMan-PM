@@ -339,11 +339,20 @@ async def index():
 
 
 # ── 请求/响应模型 ─────────────────────────────────────────────────────────────
+class ChatFile(BaseModel):
+    """上传文件解析结果：kind=text 为文本内容，kind=image 为 data URL。"""
+    filename:    str
+    kind:        str = "text"
+    content:     str = ""
+    note:        str = ""
+
+
 class ChatRequest(BaseModel):
     message:     str
     user_id:     str = "anonymous"
     conv_id:     Optional[str] = None
     model:       Optional[str] = None  # 手动指定模型（mini/evolving），不传则自动选择
+    files:       Optional[List[ChatFile]] = None  # 上传文件（解析后内容）
 
 
 class ChatResponse(BaseModel):
@@ -355,6 +364,28 @@ class ChatResponse(BaseModel):
     latency_ms:  float
     knowledge_used: bool = False
     model:       str = ""  # 实际使用的模型
+
+
+def _apply_files(req: ChatRequest) -> tuple:
+    """把上传文件合并进消息：文本拼入 message，图片收集为多模态 data URL 列表。"""
+    if not req.files:
+        return req.message, None
+    images: List[str] = []
+    file_parts = []
+    for f in req.files:
+        if f.kind == "image" and f.content:
+            images.append(f.content)
+        elif f.content:
+            file_parts.append(f"《{f.filename}》\n{f.content[:50000]}")
+    if not file_parts and not images:
+        return req.message, None
+    if file_parts:
+        final = ("用户上传了以下文件，请结合文件内容回答问题：\n\n"
+                 + "\n\n".join(file_parts)
+                 + f"\n\n用户问题：{req.message}")
+    else:
+        final = req.message
+    return final, images or None
 
 
 # ── 路由 ──────────────────────────────────────────────────────────────────────
@@ -382,6 +413,20 @@ async def reload_skills():
     if _orchestrator is not None:
         _orchestrator.set_skill_manager(_skill_manager)
     return _skill_manager.summary()
+
+
+@app.post("/upload-file", tags=["文件"])
+async def upload_file(file: UploadFile = File(...)):
+    """
+    上传并解析文件，返回结构化内容。
+    - 文本/PDF/Word/Excel/PPT/压缩包：返回提取的文本内容
+    - 图片：返回 base64 data URL（供视觉模型识别）
+    - 视频/音频：返回说明文字（暂不支持内容解析）
+    """
+    from mcp.file_parser import parse_file
+    data = await file.read()
+    result = parse_file(file.filename or "unnamed", data)
+    return result
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -413,20 +458,24 @@ async def chat(req: ChatRequest):
         context_parts.append(knowledge_text)
     full_context = "\n\n".join(part for part in context_parts if part)
 
+    final_message, images = _apply_files(req)
+
     orch_req = OrcReq(
-        message=req.message,
+        message=final_message,
         user_id=req.user_id,
         conv_id=conv_id,
         context=full_context,
         history=history,
         model_override=req.model,
+        images=images,
     )
 
     # 3. 执行
     result = await _orchestrator.run(orch_req)
 
     # 4. 写入记忆
-    await _memory.add_message(req.user_id, conv_id, MsgRole.USER, req.message)
+    attach_note = f"\n[已附加 {len(req.files)} 个文件]" if req.files else ""
+    await _memory.add_message(req.user_id, conv_id, MsgRole.USER, req.message + attach_note)
     await _memory.add_message(req.user_id, conv_id, MsgRole.ASSISTANT, result.response)
 
     # 5. 异步更新用户画像（不阻塞响应）
@@ -478,13 +527,16 @@ async def chat_stream(req: ChatRequest):
         context_parts.append(knowledge_text)
     full_context = "\n\n".join(part for part in context_parts if part)
 
+    final_message, images = _apply_files(req)
+
     orch_req = OrcReq(
-        message=req.message,
+        message=final_message,
         user_id=req.user_id,
         conv_id=conv_id,
         context=full_context,
         history=history,
         model_override=req.model,
+        images=images,
     )
 
     async def generate():
