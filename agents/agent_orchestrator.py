@@ -332,6 +332,12 @@ class AgentOrchestrator:
             req.intent  = intent_result.intent
             req.urgency = intent_result.urgency
 
+        # 外部信息类问题自动联网搜索（结果作为背景资料交给 Agent）
+        if self._needs_search(req):
+            search_bg = await self._search_for(req)
+            if search_bg:
+                req.context = (req.context + "\n\n" + search_bg) if req.context else search_bg
+
         # 并行协作已禁用：始终由"意图识别 → 单一最贴切 Agent"作答，
         # 避免多 Agent 同时回答导致响应慢、答案冗长。
         # collaboration = self._collaboration_targets(req)
@@ -381,6 +387,12 @@ class AgentOrchestrator:
             intent_result = await self._intent_recognizer.recognize(req.message, history=req.history)
             req.intent = intent_result.intent
             req.urgency = intent_result.urgency
+
+        # 外部信息类问题自动联网搜索（结果作为背景资料交给 Agent）
+        if self._needs_search(req):
+            search_bg = await self._search_for(req)
+            if search_bg:
+                req.context = (req.context + "\n\n" + search_bg) if req.context else search_bg
 
         # 2. 路由（并行协作已禁用，始终单一 Agent 作答）
         # collaboration = self._collaboration_targets(req)
@@ -536,6 +548,38 @@ class AgentOrchestrator:
         except Exception as ex:
             logger.warning(f"复杂度评估失败，回退到深度思考模型: {ex}")
             return self._deep_model
+
+    def _needs_search(self, req: Request) -> bool:
+        """判断是否为外部信息查询：是则自动联网搜索。
+
+        只对信息查询类意图（QUERY/OTHER）触发；内部项目管理场景不搜索；
+        命中外部实体特征词（公司/科技/最新/行情等）才触发。
+        """
+        if req.intent not in (IntentCategory.QUERY, IntentCategory.OTHER):
+            return False
+        m = (req.message or "").strip()
+        if len(m) < 4:
+            return False
+        internal_kws = ["帮我规划", "帮我跟踪", "生成周报", "我的项目", "我们项目",
+                        "任务表", "进度如何", "风险应对", "排期", "里程碑", "复盘",
+                        "计划", "安排任务", "拆解"]
+        if any(k in m for k in internal_kws):
+            return False
+        external_kws = ["科技", "公司", "集团", "有限", "怎么样", "是什么", "有什么项目",
+                        "最新", "新闻", "行情", "事件", "股票", "股价", "价格", "多少钱",
+                        "谁", "哪里", "什么时候", "为什么", "产品", "业务", "发布",
+                        "融资", "投资", "收购", "成立"]
+        return any(k in m for k in external_kws)
+
+    async def _search_for(self, req: Request) -> str:
+        """执行联网搜索，返回格式化背景文本（失败/无结果返回空串，不阻断主流程）。"""
+        try:
+            from mcp.web_search import web_search, clean_query, format_results
+            results = await web_search(clean_query(req.message))
+            return format_results(results)
+        except Exception as ex:
+            logger.warning(f"联网搜索失败: {ex}")
+            return ""
 
     def _collaboration_targets(self, req: Request) -> List[AgentType]:
         """
