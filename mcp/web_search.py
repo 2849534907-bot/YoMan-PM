@@ -94,7 +94,7 @@ def format_results(results: List[Dict[str, str]]) -> str:
     """把搜索结果格式化为 LLM 可读的背景文本。"""
     if not results:
         return ""
-    lines = ["【联网搜索结果】"]
+    lines = ["【网上参考信息（仅供参考，回答请以用户提供的资料和项目管理专业判断为主）】"]
     for i, r in enumerate(results, 1):
         lines.append(f"{i}. {r['title']}\n   链接: {r['url']}\n   摘要: {r['snippet'][:300]}")
     return "\n".join(lines)

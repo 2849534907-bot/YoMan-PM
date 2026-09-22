@@ -227,6 +227,9 @@ class GeneralAgent(BaseAgent):
         "你是 EchoMind-PM 项目管理助手。友好、简洁地回答用户关于项目管理的问题。"
         "如果问题超出你的能力范围，明确说明并建议转接专业项目管理功能。"
         "可协助用户了解项目整体情况、解释项目管理概念。"
+        "回答原则：收到问题后先思考，梳理用户提供的资料（上传的文件、对话上下文），"
+        "再参考联网搜索到的信息，经过综合判断给出有条理、有依据的合理答案；"
+        "资料与网络信息冲突时以用户资料为准并说明差异。"
         "当用户上传文件或图片时，请先读取其中的内容，并尽量结合项目管理/工作场景给出解读、总结或建议；"
         "如果内容与工作完全无关，可简短说明后礼貌引导回项目管理话题。"
     )
@@ -551,26 +554,19 @@ class AgentOrchestrator:
             return self._deep_model
 
     def _needs_search(self, req: Request) -> bool:
-        """判断是否为外部信息查询：是则自动联网搜索。
+        """判断是否需要联网搜索（作为参考信息）。
 
-        只对信息查询类意图（QUERY/OTHER）触发；内部项目管理场景不搜索；
-        命中外部实体特征词（公司/科技/最新/行情等）才触发。
+        除问候/闲聊/升级外，查询、规划、跟踪、汇报等场景均联网搜索：
+        - 外部信息类：直接搜索答案
+        - 内部项目管理类：搜索行业最佳实践/参考案例
+        回答仍以用户提供的资料为主要依据，网上内容仅作参考。
         """
-        if req.intent not in (IntentCategory.QUERY, IntentCategory.OTHER):
+        if req.intent in (IntentCategory.GREETING, IntentCategory.ESCALATION):
             return False
         m = (req.message or "").strip()
         if len(m) < 4:
             return False
-        internal_kws = ["帮我规划", "帮我跟踪", "生成周报", "我的项目", "我们项目",
-                        "任务表", "进度如何", "风险应对", "排期", "里程碑", "复盘",
-                        "计划", "安排任务", "拆解"]
-        if any(k in m for k in internal_kws):
-            return False
-        external_kws = ["科技", "公司", "集团", "有限", "怎么样", "是什么", "有什么项目",
-                        "最新", "新闻", "行情", "事件", "股票", "股价", "价格", "多少钱",
-                        "谁", "哪里", "什么时候", "为什么", "产品", "业务", "发布",
-                        "融资", "投资", "收购", "成立"]
-        return any(k in m for k in external_kws)
+        return True
 
     async def _search_for(self, req: Request) -> str:
         """执行联网搜索，返回格式化背景文本（失败/无结果返回空串，不阻断主流程）。
