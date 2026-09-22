@@ -19,6 +19,7 @@ EchoMind-PM — 项目管理 AI Agent 编排器
 """
 import asyncio
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -572,14 +573,80 @@ class AgentOrchestrator:
         return any(k in m for k in external_kws)
 
     async def _search_for(self, req: Request) -> str:
-        """执行联网搜索，返回格式化背景文本（失败/无结果返回空串，不阻断主流程）。"""
+        """执行联网搜索，返回格式化背景文本（失败/无结果返回空串，不阻断主流程）。
+
+        搜索词策略：先用快速模型提取准确关键词（如"禾迈电力电子"→"禾迈股份"），
+        再以清洗后的原词兜底，两者合并去重，提升中文实体命中率。
+        """
         try:
             from mcp.web_search import web_search, clean_query, format_results
-            results = await web_search(clean_query(req.message))
-            return format_results(results)
+            keywords = await self._extract_search_keywords(req)
+            fallback = clean_query(req.message)
+            if fallback and fallback not in keywords:
+                keywords.append(fallback)
+            if not keywords:
+                return ""
+
+            junk_kws = ["汉典", "汉语国学", "汉语查", "新华字典", "字典", "的拼音",
+                        "的意思", "部首", "释义", "读音", "笔画", "组词", "词典"]
+
+            def _is_junk(r: Dict[str, str]) -> bool:
+                blob = (r.get("title", "") + r.get("snippet", ""))
+                return any(k in blob for k in junk_kws)
+
+            all_results: List[Dict[str, Any]] = []
+            seen: set = set()
+            used_kws: List[str] = []
+            for kw in keywords[:3]:
+                used_kws.append(kw)
+                for r in await web_search(kw, max_results=4):
+                    url = r.get("url", "")
+                    if url and url not in seen and not _is_junk(r):
+                        seen.add(url)
+                        all_results.append(r)
+            # 结果全被过滤（如"禾迈电力电子"命中字典）→ 尝试简称变体（+股份/+集团）
+            if not all_results:
+                for kw in used_kws:
+                    for suffix in ("股份", "集团", "科技"):
+                        if kw.endswith(suffix) or len(kw) > 8:
+                            continue
+                        variant = kw + suffix
+                        for r in await web_search(variant, max_results=3):
+                            url = r.get("url", "")
+                            if url and url not in seen and not _is_junk(r):
+                                seen.add(url)
+                                all_results.append(r)
+            return format_results(all_results)
         except Exception as ex:
             logger.warning(f"联网搜索失败: {ex}")
             return ""
+
+    async def _extract_search_keywords(self, req: Request) -> List[str]:
+        """用快速模型从问题中提取 1-2 个搜索关键词（公司名/专有名词），失败返回空。"""
+        try:
+            agent = self._best_agent(AgentType.GENERAL)
+            if agent is None:
+                return []
+            prompt = (
+                "你是搜索关键词专家。从下面问题中提取 1-2 个最适合联网搜索的实体名称关键词。\n"
+                "规则：\n"
+                "1. 若是公司/机构，必须用其正式简称或股票简称（例如：杭州禾迈电力电子股份有限公司 → 禾迈股份；"
+                "字节跳动有限公司 → 字节跳动）\n"
+                "2. 排除'项目、公司、集团、科技、怎么样、是什么、有哪些'等通用词\n"
+                "3. 只输出关键词本身，多个用英文逗号分隔，不要任何解释\n"
+                "问题：\n" + req.message[:200]
+            )
+            text = await agent._client.chat(
+                [{"role": "user", "content": prompt}],
+                max_tokens=60,
+                temperature=0.0,
+                model=self._fast_model,
+            )
+            kws = [k.strip() for k in re.split(r"[,，]", text) if k.strip()]
+            return kws[:2]
+        except Exception as ex:
+            logger.warning(f"搜索关键词提取失败: {ex}")
+            return []
 
     def _collaboration_targets(self, req: Request) -> List[AgentType]:
         """
