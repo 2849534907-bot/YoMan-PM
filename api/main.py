@@ -458,9 +458,9 @@ async def chat(req: ChatRequest):
 
     knowledge_text, knowledge_used = await _build_knowledge_context(req.message)
     user_message, images, file_background = _apply_files(req)
-    context_parts = [mem_ctx.to_prompt_text()]
+    context_parts = ["【对话历史（上下文参考，不是用户主动上传的资料）】\n" + mem_ctx.to_prompt_text()]
     if file_background:
-        context_parts.append(file_background)
+        context_parts.append("【用户上传的资料（回答以此为主要依据）】\n" + file_background)
     if knowledge_text:
         context_parts.append(knowledge_text)
     full_context = "\n\n".join(part for part in context_parts if part)
@@ -528,9 +528,9 @@ async def chat_stream(req: ChatRequest):
 
     knowledge_text, knowledge_used = await _build_knowledge_context(req.message)
     user_message, images, file_background = _apply_files(req)
-    context_parts = [mem_ctx.to_prompt_text()]
+    context_parts = ["【对话历史（上下文参考，不是用户主动上传的资料）】\n" + mem_ctx.to_prompt_text()]
     if file_background:
-        context_parts.append(file_background)
+        context_parts.append("【用户上传的资料（回答以此为主要依据）】\n" + file_background)
     if knowledge_text:
         context_parts.append(knowledge_text)
     full_context = "\n\n".join(part for part in context_parts if part)
